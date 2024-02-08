@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import apiClient from "../services/api-client";
-import { Text } from "@chakra-ui/react";
+import { CanceledError } from "axios";
 
 interface Games {
   id: number;
@@ -12,27 +12,23 @@ interface FetchGamesResponse {
   results: Games[];
 }
 
-const GameGrid = () => {
+const useGames = () => {
   const [games, setGames] = useState<Games[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
     apiClient
-      .get<FetchGamesResponse>("/games")
+      .get<FetchGamesResponse>("/games", { signal: controller.signal })
       .then((res) => setGames(res.data.results))
-      .catch((err) => setError(err.message));
-  });
+      .catch((err) => {
+       if (err instanceof CanceledError) return; 
+        setError(err.message)});
 
-  return (
-    <>
-      {error && <Text>{error}</Text>}
-      <ul>
-        {games.map((game) => (
-          <li key={game.id}>{game.name}</li>
-        ))}
-      </ul>
-    </>
-  );
+    return () => controller.abort();
+  }, []);
+
+  return { games, error };
 };
 
-export default GameGrid;
+export default useGames;
